@@ -5,5 +5,5 @@ import (
 )
 
 type Config struct {
-	Timer *timer.TimerConf
+	Timer *timer.TimerConf `json:"Timer"`
 }

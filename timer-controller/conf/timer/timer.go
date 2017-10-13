@@ -3,13 +3,20 @@ package timer
 import (
 	"time"
 
-	"subassembly/timer-controller/conf/commons"
+	"code-lib/notify/rabbitmq"
 )
 
 type TimerConf struct {
-	MQ *commons.RabbitmqConf
+	// 定时器触发周期
+	// Nanosecond  Duration = 1
+	// Microsecond          = 1e3
+	// Millisecond          = 1e6
+	// Second               = 1e9
+	// Minute               = 6e10
+	// Hour                 = 3.6e12
+	PollCycle time.Duration `json:"PollCycle"`
+
+	MQ *rabbitmq.RabbitNotifyConf `json:"MQ"`
 	// Redis
 
-	// 定时器触发周期
-	PollCycle time.Duration
 }

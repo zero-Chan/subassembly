@@ -5,16 +5,16 @@ import (
 	"time"
 )
 
-type TimerEntryProto struct {
+type TimerNotice struct {
 	// 目的地
-	Destination RabbitmqPublishProto `json:"destinetion"`
+	Destination RabbitmqDestination `json:"Destinetion"`
 
 	// 消息发出时间
 	SendUnixTime time.Time `json:"SendUnixTime"`
 
 	// 超时时长
 	// 超时时间　＝　${SendUnixTime} + Expire
-	Expire time.Duration `json:"expire"`
+	Expire time.Duration `json:"Expire"`
 
 	// 真实消息体
 	Target *json.RawMessage `json:"Target"`

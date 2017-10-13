@@ -1,0 +1,18 @@
+{
+	"Timer": {
+		"PollCycle": 1e9,
+		"MQ": {
+			"Host": "localhost",
+			"Port": 5672,
+			"UserName": "guest",
+			"Password": "guest",
+			"VHost": "/",
+			"ConsumerInuse": true,
+			"Exchange": "cza.test.timer",
+			"Kind": "direct",
+			"Advanced": {
+				
+			}
+		}
+	}
+}
