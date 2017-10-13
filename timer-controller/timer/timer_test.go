@@ -25,9 +25,17 @@ func Test_Timer(t *testing.T) {
 		},
 	}
 
-	_, err := NewTimer(cfg)
+	timer, err := NewTimer(cfg)
 	if err != nil {
 		t.Errorf("%s", err)
 		t.FailNow()
 	}
+
+	err = timer.Run()
+	if err != nil {
+		t.Errorf("%s", err)
+		t.FailNow()
+	}
+
+	select {}
 }

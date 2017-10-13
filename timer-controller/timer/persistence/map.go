@@ -1,9 +1,13 @@
 package persistence
 
 import (
+	"fmt"
+
 	"encoding/json"
 	"sync"
 	"time"
+
+	"code-lib/notify"
 
 	proto "subassembly/timer-controller/proto/notify"
 )
@@ -29,20 +33,27 @@ func NewHashMap() (hashmap *HashMap) {
 	return &m
 }
 
-func (this *HashMap) Listen(datasrc <-chan []byte) (err error) {
-	go this.listen(datasrc)
+func (this *HashMap) Listen(n notify.Notify) (err error) {
+	go this.listen(n)
 	return
 }
 
-func (this *HashMap) listen(datasrc <-chan []byte) {
+func (this *HashMap) listen(n notify.Notify) {
 	var err error
 	for {
 		select {
-		case data, ok := <-datasrc:
+		case data, ok := <-n.Pop():
 			if !ok {
 				continue
 			}
 			err = this.Set(data)
+			if err != nil {
+				// TODO
+				// log.Notice()
+				continue
+			}
+
+			err = n.Ack()
 			if err != nil {
 				// TODO
 				// log.Notice()
@@ -71,13 +82,7 @@ func (this *HashMap) set(key time.Time, val []byte) {
 	this.rwMutex.Lock()
 	defer this.rwMutex.Unlock()
 
-	vallist, ok := this.storeMedium[key]
-	if !ok {
-		vallist = make([][]byte, 0)
-	}
-
-	vallist = append(vallist, val)
-	this.storeMedium[key] = vallist
+	this.storeMedium[key] = val
 }
 
 // 获取少于当前时间的所有数据
@@ -88,9 +93,9 @@ func (this *HashMap) Get(now time.Time) (datas [][]byte) {
 	defer this.rwMutex.RUnlock()
 
 	datas = make([][]byte, 0)
-	for t, tdatas := range this.storeMedium {
+	for t, tdata := range this.storeMedium {
 		if t.Before(now) {
-			datas = append(datas, tdatas...)
+			datas = append(datas, tdata)
 		}
 	}
 
@@ -104,8 +109,30 @@ func (this *HashMap) Delete(start time.Time, end time.Time, pairs ...time.Time) 
 
 	mlist := make(DeleteTimeList, 0)
 	mlist = append(mlist, start, end)
-	mlist = append(mlist, pairs...)
+
+	if len(pairs)%2 == 0 {
+		mlist = append(mlist, pairs...)
+	}
 
 	// TODO
+	deletetimes := make(DeleteTimeList, 0)
 
+	for t, _ := range this.storeMedium {
+		for i := 0; i < len(mlist); i++ {
+			start := mlist[i]
+			i++
+			end := mlist[i]
+
+			if t.After(start) && t.Before(end) {
+				deletetimes = append(deletetimes, t)
+			}
+		}
+	}
+
+	// TODO
+	fmt.Println("can delete: ", deletetimes)
+
+	for _, t := range deletetimes {
+		delete(this.storeMedium, t)
+	}
 }

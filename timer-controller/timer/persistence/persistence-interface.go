@@ -2,10 +2,12 @@ package persistence
 
 import (
 	"time"
+
+	"code-lib/notify"
 )
 
 type Persistence interface {
-	Listen(<-chan []byte) error
+	Listen(notify.Notify) error
 
 	// 获取少于当前时间的所有数据
 	Get(time.Time) [][]byte

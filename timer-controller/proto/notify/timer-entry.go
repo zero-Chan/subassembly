@@ -17,5 +17,5 @@ type TimerNotice struct {
 	Expire time.Duration `json:"Expire"`
 
 	// 真实消息体
-	Target *json.RawMessage `json:"Target"`
+	Target json.RawMessage `json:"Target"`
 }

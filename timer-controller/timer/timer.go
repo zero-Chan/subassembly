@@ -107,6 +107,13 @@ func (this *Timer) Run() (err error) {
 		return
 	}
 
+	err = this.Persistence.Listen(this.ConsumeMQ)
+	if err != nil {
+		return
+	}
+
+	go this.polling()
+
 	return
 }
 
@@ -116,7 +123,12 @@ func (this *Timer) polling() {
 		select {
 		// 定时器到期
 		case now := <-PollCycle.C:
+			fmt.Println("timeout...")
+
 			datas := this.Persistence.Get(now)
+
+			fmt.Println("datas = ", datas)
+
 			errlist := this.sendDatas(datas)
 
 			// make delete list
