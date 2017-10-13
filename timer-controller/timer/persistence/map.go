@@ -1,8 +1,6 @@
 package persistence
 
 import (
-	"fmt"
-
 	"encoding/json"
 	"sync"
 	"time"
@@ -114,7 +112,6 @@ func (this *HashMap) Delete(start time.Time, end time.Time, pairs ...time.Time) 
 		mlist = append(mlist, pairs...)
 	}
 
-	// TODO
 	deletetimes := make(DeleteTimeList, 0)
 
 	for t, _ := range this.storeMedium {
@@ -128,9 +125,6 @@ func (this *HashMap) Delete(start time.Time, end time.Time, pairs ...time.Time) 
 			}
 		}
 	}
-
-	// TODO
-	fmt.Println("can delete: ", deletetimes)
 
 	for _, t := range deletetimes {
 		delete(this.storeMedium, t)

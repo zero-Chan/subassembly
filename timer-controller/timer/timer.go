@@ -42,17 +42,24 @@ func CreateTimer(cfg *conf.TimerConf) (timer Timer, err error) {
 	}
 
 	timer = Timer{
-		cfg:       cfg,
-		PollCycle: cfg.PollCycle,
+		cfg:        cfg,
+		PollCycle:  cfg.PollCycle,
+		PublishMQs: make(map[proto.RabbitmqDestination]notify.Notify),
 	}
 
 	err = timer.configCheck()
 	if err != nil {
-		err = fmt.Errorf(ErrorPrefix + "`Reason: cfg is nil.`")
+		err = fmt.Errorf(ErrorPrefix+"`Reason: %s`", err)
+		return
 	}
 
 	// MQ
 	timer.ConsumeMQ, err = rabbitnotify.NewRabbitNotify(cfg.MQ)
+	if err != nil {
+		return
+	}
+
+	err = timer.ConsumeMQ.Init()
 	if err != nil {
 		return
 	}
@@ -123,12 +130,7 @@ func (this *Timer) polling() {
 		select {
 		// 定时器到期
 		case now := <-PollCycle.C:
-			fmt.Println("timeout...")
-
 			datas := this.Persistence.Get(now)
-
-			fmt.Println("datas = ", datas)
-
 			errlist := this.sendDatas(datas)
 
 			// make delete list
@@ -153,7 +155,7 @@ func (this *Timer) sendDatas(datas [][]byte) (errlist []time.Time) {
 			continue
 		}
 
-		err = this.sendData(data, val.Destination)
+		err = this.sendData(val.Target, val.Destination)
 		if err != nil {
 			// TODO
 			// log.Notice
@@ -190,12 +192,19 @@ func (this *Timer) sendData(data []byte, dest proto.RabbitmqDestination) (err er
 			RoutingKey:     dest.RoutingKey,
 		})
 		if err != nil {
+			fmt.Println(err)
 			return
 		}
+
+		// no init rabbitmq exchange / queue. publishMQs will publish whether exchange/queue exist or not.
 		this.PublishMQs[dest] = pnotify
 	}
 
 	err = pnotify.Push(data)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
 
 	return
 }
