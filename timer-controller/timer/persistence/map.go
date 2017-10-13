@@ -1,13 +1,8 @@
 package persistence
 
 import (
-	"encoding/json"
 	"sync"
 	"time"
-
-	"code-lib/notify"
-
-	proto "subassembly/timer-controller/proto/notify"
 )
 
 type HashMap struct {
@@ -31,52 +26,7 @@ func NewHashMap() (hashmap *HashMap) {
 	return &m
 }
 
-func (this *HashMap) Listen(n notify.Notify) (err error) {
-	go this.listen(n)
-	return
-}
-
-func (this *HashMap) listen(n notify.Notify) {
-	var err error
-	for {
-		select {
-		case data, ok := <-n.Pop():
-			if !ok {
-				continue
-			}
-			err = this.Set(data)
-			if err != nil {
-				// TODO
-				// log.Notice()
-				continue
-			}
-
-			err = n.Ack()
-			if err != nil {
-				// TODO
-				// log.Notice()
-				continue
-			}
-		}
-
-	}
-}
-
-func (this *HashMap) Set(data []byte) (err error) {
-	val := &proto.TimerNotice{}
-
-	err = json.Unmarshal(data, val)
-	if err != nil {
-		return
-	}
-
-	expireTime := val.SendUnixTime.Add(val.Expire)
-	this.set(expireTime, data)
-
-	return
-}
-
-func (this *HashMap) set(key time.Time, val []byte) {
+func (this *HashMap) Set(key time.Time, val []byte) {
 	this.rwMutex.Lock()
 	defer this.rwMutex.Unlock()
 

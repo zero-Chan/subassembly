@@ -114,20 +114,42 @@ func (this *Timer) Run() (err error) {
 		return
 	}
 
-	err = this.Persistence.Listen(this.ConsumeMQ)
-	if err != nil {
-		return
-	}
-
 	go this.polling()
 
 	return
 }
 
 func (this *Timer) polling() {
-	PollCycle := time.NewTicker(this.PollCycle)
+	var (
+		err       error
+		PollCycle = time.NewTicker(this.PollCycle)
+	)
+
 	for {
 		select {
+		case data, ok := <-this.ConsumeMQ.Pop():
+			if !ok {
+				// TODO
+				// log.notice
+				continue
+			}
+
+			val := proto.TimerNotice{}
+			err = json.Unmarshal(data, &val)
+			if err != nil {
+				// log.notice: invalid protocol
+				continue
+			}
+
+			expiretime := val.SendTime.Add(val.Expire)
+			this.Persistence.Set(expiretime, data)
+
+			err = this.ConsumeMQ.Ack()
+			if err != nil {
+				// log.notice: ack error
+				continue
+			}
+
 		// 定时器到期
 		case now := <-PollCycle.C:
 			datas := this.Persistence.Get(now)
@@ -159,7 +181,7 @@ func (this *Timer) sendDatas(datas [][]byte) (errlist []time.Time) {
 		if err != nil {
 			// TODO
 			// log.Notice
-			errlist = append(errlist, val.SendUnixTime.Add(val.Expire))
+			errlist = append(errlist, val.SendTime.Add(val.Expire))
 			continue
 		}
 		// 失败的不要delete, 下一次重试
@@ -192,7 +214,7 @@ func (this *Timer) sendData(data []byte, dest proto.RabbitmqDestination) (err er
 			RoutingKey:     dest.RoutingKey,
 		})
 		if err != nil {
-			fmt.Println(err)
+			// log
 			return
 		}
 
@@ -202,7 +224,7 @@ func (this *Timer) sendData(data []byte, dest proto.RabbitmqDestination) (err er
 
 	err = pnotify.Push(data)
 	if err != nil {
-		fmt.Println(err)
+		// log
 		return
 	}
 

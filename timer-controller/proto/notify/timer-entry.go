@@ -10,7 +10,7 @@ type TimerNotice struct {
 	Destination RabbitmqDestination `json:"Destinetion"`
 
 	// 消息发出时间
-	SendUnixTime time.Time `json:"SendUnixTime"`
+	SendTime time.Time `json:"SendUnixTime"`
 
 	// 超时时长
 	// 超时时间　＝　${SendUnixTime} + Expire
