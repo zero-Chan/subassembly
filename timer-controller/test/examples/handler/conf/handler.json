@@ -1,0 +1,12 @@
+{
+	"Host": "localhost",
+	"Port": 5672,
+	"UserName": "guest",
+	"Password": "guest",
+	"VHost": "/",
+	"Exchange": "cza.test.handler",
+	"RoutingKey": "firsthandler",
+	"QueueName": "firsthandler",
+	"Kind": "direct",
+	"ConsumerInuse": true
+}

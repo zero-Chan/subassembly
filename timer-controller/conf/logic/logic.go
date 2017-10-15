@@ -4,6 +4,6 @@ import (
 	"code-lib/notify/rabbitmq"
 )
 
-type LogicConf struct {
+type BaseLogicConf struct {
 	TimerMQ *rabbitmq.RabbitNotifyConf `json:"TimerMQ"`
 }

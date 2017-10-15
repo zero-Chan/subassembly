@@ -1,0 +1,13 @@
+{
+	"PollCycle": 1000000000,
+	"MQ": {
+		"Host": "localhost",
+		"Port": 5672,
+		"UserName": "guest",
+		"Password": "guest",
+		"VHost": "/",
+		"Exchange": "cza.test.timer",
+		"Kind": "direct",
+		"ConsumerInuse": true
+	}
+}

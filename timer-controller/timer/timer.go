@@ -7,6 +7,9 @@ import (
 	"strings"
 	"time"
 
+	"code-lib/log"
+	"code-lib/log/golog"
+
 	"code-lib/notify"
 	rabbitnotify "code-lib/notify/rabbitmq"
 
@@ -22,15 +25,20 @@ const (
 type Timer struct {
 	cfg *conf.TimerConf
 
+	log log.Logger
+
 	// 定时器触发周期
 	// 订阅队列为: ${cfg.MQ.QueueName}_${PollCycle}
-	PollCycle time.Duration
+	pollCycle time.Duration
 
-	ConsumeMQ notify.Notify
+	// 消费队列
+	consumeMQ notify.Notify
 
-	PublishMQs map[proto.RabbitmqDestination]notify.Notify
+	// 目的地队列
+	publishMQs map[proto.RabbitmqDestination]notify.Notify
 
-	Persistence persistence.Persistence
+	// 持久化
+	persistence persistence.Persistence
 }
 
 func CreateTimer(cfg *conf.TimerConf) (timer Timer, err error) {
@@ -43,8 +51,9 @@ func CreateTimer(cfg *conf.TimerConf) (timer Timer, err error) {
 
 	timer = Timer{
 		cfg:        cfg,
-		PollCycle:  cfg.PollCycle,
-		PublishMQs: make(map[proto.RabbitmqDestination]notify.Notify),
+		log:        golog.NewDefault().Virtualize(),
+		pollCycle:  cfg.PollCycle,
+		publishMQs: make(map[proto.RabbitmqDestination]notify.Notify),
 	}
 
 	err = timer.configCheck()
@@ -54,18 +63,21 @@ func CreateTimer(cfg *conf.TimerConf) (timer Timer, err error) {
 	}
 
 	// MQ
-	timer.ConsumeMQ, err = rabbitnotify.NewRabbitNotify(cfg.MQ)
+	timer.consumeMQ, err = rabbitnotify.NewRabbitNotify(cfg.MQ)
 	if err != nil {
 		return
 	}
 
-	err = timer.ConsumeMQ.Init()
+	err = timer.consumeMQ.Init()
 	if err != nil {
 		return
 	}
 
 	// Persistence
-	timer.Persistence = persistence.NewHashMap()
+	timer.persistence = persistence.NewHashMap()
+
+	// Notice
+	timer.log.Noticef("Timer[%s] Start!!!", timer.Name())
 
 	return
 }
@@ -108,63 +120,79 @@ func (this *Timer) configCheck() (err error) {
 	return
 }
 
+func (this *Timer) SetLog(log log.Logger) {
+	this.log = log
+}
+
+// Name
+// ${Exchange}/${queue}
+func (this *Timer) Name() string {
+	return this.cfg.MQ.Exchange + "/" + this.cfg.MQ.QueueName
+}
+
 func (this *Timer) Run() (err error) {
-	err = this.ConsumeMQ.Receive()
+	err = this.consumeMQ.Receive()
 	if err != nil {
 		return
 	}
 
-	go this.polling()
+	this.polling()
 
 	return
 }
 
 func (this *Timer) polling() {
+	ErrorPrefix := "[TimerPollError] `Func: Time.polling` "
+
 	var (
 		err       error
-		PollCycle = time.NewTicker(this.PollCycle)
+		PollCycle = time.NewTicker(this.pollCycle)
 	)
 
 	for {
 		select {
-		case data, ok := <-this.ConsumeMQ.Pop():
+		case data, ok := <-this.consumeMQ.Pop():
 			if !ok {
-				// TODO
-				// log.notice
+				this.log.Errorf(ErrorPrefix+"`Reason: Timer[%s] pop from consumeMQ fail.`", this.Name())
 				continue
 			}
 
 			val := proto.TimerNotice{}
 			err = json.Unmarshal(data, &val)
 			if err != nil {
-				// log.notice: invalid protocol
+				this.log.Errorf(ErrorPrefix+"`Reason: Timer[%s] get invalid protocol.` `params: proto=%s`", this.Name(), string(data))
 				continue
 			}
 
-			expiretime := val.SendTime.Add(val.Expire)
-			this.Persistence.Set(expiretime, data)
+			// Notice
+			this.log.Noticef("Timer[%s] Get data: %s", this.Name(), string(data))
 
-			err = this.ConsumeMQ.Ack()
+			expiretime := val.SendTime.Add(val.Expire)
+			this.persistence.Set(expiretime, data)
+
+			err = this.consumeMQ.Ack()
 			if err != nil {
-				// log.notice: ack error
+				this.log.Errorf(ErrorPrefix+"`Reason: %s`", err)
 				continue
 			}
 
 		// 定时器到期
 		case now := <-PollCycle.C:
-			datas := this.Persistence.Get(now)
+			datas := this.persistence.Get(now)
 			errlist := this.sendDatas(datas)
 
 			// make delete list
 			var deletelist persistence.DeleteTimeList = append(errlist, time.Unix(0, 0), now)
 			sort.Sort(deletelist)
 
-			this.Persistence.Delete(deletelist[0], deletelist[1], deletelist[2:]...)
+			this.persistence.Delete(deletelist[0], deletelist[1], deletelist[2:]...)
 		}
 	}
 }
 
 func (this *Timer) sendDatas(datas [][]byte) (errlist []time.Time) {
+	ErrorPrefix := "[TimerSendError] `Func: Time.sendDatas` "
+
 	var err error
 
 	errlist = make([]time.Time, 0)
@@ -172,16 +200,15 @@ func (this *Timer) sendDatas(datas [][]byte) (errlist []time.Time) {
 		val := proto.TimerNotice{}
 		err = json.Unmarshal(data, &val)
 		if err != nil {
-			// TODO
-			// log.Notice
+			this.log.Errorf(ErrorPrefix+"`Reason: Timer[%s] get invalid proto from persistence.` `params: proto=%s`", this.Name(), string(data))
 			continue
 		}
 
 		err = this.sendData(val.Target, val.Destination)
 		if err != nil {
-			// TODO
 			// log.Notice
 			errlist = append(errlist, val.SendTime.Add(val.Expire))
+			this.log.Errorf(ErrorPrefix+"`Reason: Timer[%s] push data to rabbitmq fail.` `params: data=%s dest=%+v`", this.Name(), string(data), val.Destination)
 			continue
 		}
 		// 失败的不要delete, 下一次重试
@@ -199,7 +226,7 @@ func (this *Timer) sendData(data []byte, dest proto.RabbitmqDestination) (err er
 	// 如果rabbit使用confirm模式，则是收到应答的时候才delete消息
 	// 第一版默认推送到Channel就算成功
 
-	pnotify, ok := this.PublishMQs[dest]
+	pnotify, ok := this.publishMQs[dest]
 	if !ok {
 		pnotify, err = rabbitnotify.NewRabbitNotify(&rabbitnotify.RabbitNotifyConf{
 			RabbitClientConf: &rabbitnotify.RabbitClientConf{
@@ -214,19 +241,20 @@ func (this *Timer) sendData(data []byte, dest proto.RabbitmqDestination) (err er
 			RoutingKey:     dest.RoutingKey,
 		})
 		if err != nil {
-			// log
 			return
 		}
 
 		// no init rabbitmq exchange / queue. publishMQs will publish whether exchange/queue exist or not.
-		this.PublishMQs[dest] = pnotify
+		this.publishMQs[dest] = pnotify
 	}
 
 	err = pnotify.Push(data)
 	if err != nil {
-		// log
 		return
 	}
+
+	// Notice
+	this.log.Noticef("Timer[%s] send data: %s", this.Name(), string(data))
 
 	return
 }

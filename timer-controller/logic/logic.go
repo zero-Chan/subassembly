@@ -13,11 +13,11 @@ import (
 )
 
 type BaseLogic struct {
-	cfg       *conf.LogicConf
-	publishMQ notify.Notify
+	cfg       *conf.BaseLogicConf `json:"-"`
+	publishMQ notify.Notify       `json:"-"`
 }
 
-func CreateBaseLogic(cfg *conf.LogicConf) (logic BaseLogic, err error) {
+func CreateBaseLogic(cfg *conf.BaseLogicConf) (logic BaseLogic, err error) {
 	logic = BaseLogic{
 		cfg: cfg,
 	}
@@ -30,6 +30,12 @@ func CreateBaseLogic(cfg *conf.LogicConf) (logic BaseLogic, err error) {
 	// tips: exchange and queue should create by timer, so do MQ.Init without here.
 
 	return
+}
+
+func NewBaseLogic(cfg *conf.BaseLogicConf) (logic *BaseLogic, err error) {
+	l, err := CreateBaseLogic(cfg)
+
+	return &l, err
 }
 
 func (this *BaseLogic) Push2Timer(target []byte, expire time.Duration, dest proto.RabbitmqDestination) (err error) {

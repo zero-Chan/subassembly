@@ -1,0 +1,12 @@
+{
+	"TimerMQ": {
+		"Host": "localhost",
+		"Port": 5672,
+		"UserName": "guest",
+		"Password": "guest",
+		"VHost": "/",
+		"Exchange": "cza.test.timer",
+		"RoutingKey": "controller_1s",
+		"PublisherInuse": true
+	}
+}
