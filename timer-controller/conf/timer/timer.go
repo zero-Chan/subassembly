@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"code-lib/notify/rabbitmq"
+	"code-lib/redis"
 )
 
 type TimerConf struct {
@@ -17,6 +18,16 @@ type TimerConf struct {
 	PollCycle time.Duration `json:"PollCycle"`
 
 	MQ *rabbitmq.RabbitNotifyConf `json:"MQ"`
-	// Redis
 
+	Persistence *RedisPersistenceConf `json:"Persistence"`
+}
+
+// 支持单节点模式和cluster模式
+type RedisPersistenceConf struct {
+	// redis-cli
+	Cluster *redis.RedisClusterClientConf `json:"Cluster"`
+	Single  *redis.RedisClientConf        `json:"Single"`
+
+	// sessionID
+	SessionIDFile string `json:"SessionIDFile"`
 }

@@ -3,7 +3,6 @@ package timer
 import (
 	"encoding/json"
 	"fmt"
-	"sort"
 	"strings"
 	"time"
 
@@ -74,7 +73,12 @@ func CreateTimer(cfg *conf.TimerConf) (timer Timer, err error) {
 	}
 
 	// Persistence
-	timer.persistence = persistence.NewHashMap()
+	//	timer.persistence = persistence.NewHashMap()
+	timer.persistence, err = persistence.NewRedis(timer.cfg.Persistence)
+	if err != nil {
+		err = fmt.Errorf(ErrorPrefix+"`Reason: %s`", err)
+		return
+	}
 
 	// Notice
 	timer.log.Noticef("Timer[%s] Start!!!", timer.Name())
@@ -168,24 +172,35 @@ func (this *Timer) polling() {
 			this.log.Noticef("Timer[%s] Get data: %s", this.Name(), string(data))
 
 			expiretime := val.SendTime.Add(val.Expire)
-			this.persistence.Set(expiretime, data)
+			err = this.persistence.Set(expiretime, data)
+			if err != nil {
+				// only log.Errorf
+				this.log.Errorf(ErrorPrefix+"Reason: Timer[%s] persistence.Set data fail: %s", this.Name(), err)
+			}
 
 			err = this.consumeMQ.Ack()
 			if err != nil {
-				this.log.Errorf(ErrorPrefix+"`Reason: %s`", err)
+				this.log.Errorf(ErrorPrefix+"`Reason: Timer[%s] ack fail: %s`", this.Name(), err)
 				continue
 			}
 
 		// 定时器到期
 		case now := <-PollCycle.C:
-			datas := this.persistence.Get(now)
+			datas, err := this.persistence.Get(now)
+			if err != nil {
+				this.log.Errorf(ErrorPrefix+"`Reason: Timer[%s] persistence.Get datas fail: %s`", this.Name(), err)
+				continue
+			}
+
 			errlist := this.sendDatas(datas)
 
 			// make delete list
-			var deletelist persistence.DeleteTimeList = append(errlist, time.Unix(0, 0), now)
-			sort.Sort(deletelist)
-
-			this.persistence.Delete(deletelist[0], deletelist[1], deletelist[2:]...)
+			deletelist := persistence.NewDeleteTimeList(time.Unix(0, 0), now, errlist...)
+			err = this.persistence.Delete(deletelist[0], deletelist[1], deletelist[2:]...)
+			if err != nil {
+				this.log.Errorf(ErrorPrefix+"`Reason: Timer[%s] persistence.Delete datas fail: %s`", this.Name(), err)
+				continue
+			}
 		}
 	}
 }

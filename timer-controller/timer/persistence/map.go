@@ -26,11 +26,13 @@ func NewHashMap() (hashmap *HashMap) {
 	return &m
 }
 
-func (this *HashMap) Set(key time.Time, val []byte) {
+func (this *HashMap) Set(key time.Time, val []byte) error {
 	this.rwMutex.Lock()
 	defer this.rwMutex.Unlock()
 
 	this.storeMedium[key] = val
+
+	return nil
 }
 
 // 获取少于当前时间的所有数据

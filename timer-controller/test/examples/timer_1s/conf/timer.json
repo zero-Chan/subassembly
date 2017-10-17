@@ -9,5 +9,14 @@
 		"Exchange": "cza.test.timer",
 		"Kind": "direct",
 		"ConsumerInuse": true
+	},
+	
+	"Persistence": {
+		"Single": {
+			"Addr": {
+				"Host": "localhost",
+				"Port": 10379
+			}
+		}
 	}
 }

@@ -50,7 +50,7 @@ func main() {
 		return
 	}
 
-	err = logica.Push2Timer(data, time.Second*5, proto.RabbitmqDestination{
+	err = logica.Push2Timer(data, time.Second*1, proto.RabbitmqDestination{
 		Exchange:   "cza.test.handler",
 		RoutingKey: "firsthandler",
 	})
@@ -58,6 +58,7 @@ func main() {
 		log.Errorf("%s", err)
 		return
 	}
+
 }
 
 type LogicaConf struct {
