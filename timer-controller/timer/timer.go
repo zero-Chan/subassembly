@@ -38,6 +38,11 @@ type Timer struct {
 
 	// 持久化
 	persistence persistence.Persistence
+
+	// 停止信号
+	stopStart chan bool
+	stopEnd   chan bool
+	isstop    bool
 }
 
 func CreateTimer(cfg *conf.TimerConf) (timer Timer, err error) {
@@ -53,6 +58,9 @@ func CreateTimer(cfg *conf.TimerConf) (timer Timer, err error) {
 		log:        golog.NewDefault().Virtualize(),
 		pollCycle:  cfg.PollCycle,
 		publishMQs: make(map[proto.RabbitmqDestination]notify.Notify),
+		stopStart:  make(chan bool),
+		stopEnd:    make(chan bool),
+		isstop:     false,
 	}
 
 	err = timer.configCheck()
@@ -87,6 +95,25 @@ func CreateTimer(cfg *conf.TimerConf) (timer Timer, err error) {
 }
 
 func (this *Timer) Close() (err error) {
+	ErrorPrefix := "[CloseError] `Func: Timer.Close` "
+
+	// TODO
+	// close consumerMQ. 先关闭入口
+	//	err = this.consumeMQ.Close()
+
+	// 关闭polling
+	this.stopStart <- true
+	<-this.stopEnd
+
+	// close persistence
+	err = this.persistence.Close()
+	if err != nil {
+		// only log.Error
+		this.log.Errorf(ErrorPrefix+"`Reason: %s`", err)
+	}
+
+	// close publishMQs
+	// err = for range this.publishMQs.Close()
 
 	return
 }
@@ -206,6 +233,15 @@ func (this *Timer) polling() {
 				this.log.Errorf(ErrorPrefix+"`Reason: Timer[%s] persistence.Delete datas fail: %s`", this.Name(), err)
 				continue
 			}
+
+			if this.isstop {
+				this.stopEnd <- true
+				return
+			}
+
+		// 退出信号
+		case <-this.stopStart:
+			this.isstop = true
 		}
 	}
 }
