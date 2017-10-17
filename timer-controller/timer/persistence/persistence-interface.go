@@ -6,6 +6,8 @@ import (
 )
 
 type Persistence interface {
+	Close() error
+
 	// 存储数据
 	Set(key time.Time, data []byte) error
 

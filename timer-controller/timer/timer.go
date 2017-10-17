@@ -72,7 +72,7 @@ func CreateTimer(cfg *conf.TimerConf) (timer Timer, err error) {
 		return
 	}
 
-	// Persistence
+	// Persistence - redis
 	//	timer.persistence = persistence.NewHashMap()
 	timer.persistence, err = persistence.NewRedis(timer.cfg.Persistence)
 	if err != nil {
@@ -82,6 +82,11 @@ func CreateTimer(cfg *conf.TimerConf) (timer Timer, err error) {
 
 	// Notice
 	timer.log.Noticef("Timer[%s] Start!!!", timer.Name())
+
+	return
+}
+
+func (this *Timer) Close() (err error) {
 
 	return
 }

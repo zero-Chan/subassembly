@@ -26,6 +26,10 @@ func NewHashMap() (hashmap *HashMap) {
 	return &m
 }
 
+func (this *HashMap) Close() (err error) {
+	return
+}
+
 func (this *HashMap) Set(key time.Time, val []byte) error {
 	this.rwMutex.Lock()
 	defer this.rwMutex.Unlock()
@@ -36,7 +40,7 @@ func (this *HashMap) Set(key time.Time, val []byte) error {
 }
 
 // 获取少于当前时间的所有数据
-func (this *HashMap) Get(now time.Time) (datas [][]byte) {
+func (this *HashMap) Get(now time.Time) (datas [][]byte, err error) {
 	// TODO
 	// 改用list
 	this.rwMutex.RLock()
@@ -53,7 +57,7 @@ func (this *HashMap) Get(now time.Time) (datas [][]byte) {
 }
 
 // 删除时间范围内的所有数据, 范围: [start1, end1), [start2, end2) ...
-func (this *HashMap) Delete(start time.Time, end time.Time, pairs ...time.Time) {
+func (this *HashMap) Delete(start time.Time, end time.Time, pairs ...time.Time) (err error) {
 	this.rwMutex.Lock()
 	defer this.rwMutex.Unlock()
 
@@ -81,4 +85,6 @@ func (this *HashMap) Delete(start time.Time, end time.Time, pairs ...time.Time) 
 	for _, t := range deletetimes {
 		delete(this.storeMedium, t)
 	}
+
+	return
 }

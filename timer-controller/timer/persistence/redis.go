@@ -72,6 +72,21 @@ func NewRedis(cfg *conf.RedisPersistenceConf) (persistence *Redis, err error) {
 	return &p, err
 }
 
+func (this *Redis) Close() (err error) {
+	switch this.cli.(type) {
+	case *redis.Client:
+		cli := this.cli.(*redis.Client)
+		err = cli.Close()
+		return
+	case *redis.ClusterClient:
+		cli := this.cli.(*redis.ClusterClient)
+		err = cli.Close()
+		return
+	}
+
+	return
+}
+
 // 存储数据
 func (this *Redis) Set(key time.Time, data []byte) (err error) {
 	nanosec := key.UnixNano()
