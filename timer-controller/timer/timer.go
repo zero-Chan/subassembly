@@ -99,7 +99,10 @@ func (this *Timer) Close() (err error) {
 
 	// TODO
 	// close consumerMQ. 先关闭入口
-	//	err = this.consumeMQ.Close()
+	err = this.consumeMQ.Close()
+	if err != nil {
+		this.log.Error(ErrorPrefix+"`Reason: consumeMQ[%s] close: %s`", this.consumeMQ.Name(), err)
+	}
 
 	// 关闭polling
 	this.stopStart <- true
@@ -113,7 +116,12 @@ func (this *Timer) Close() (err error) {
 	}
 
 	// close publishMQs
-	// err = for range this.publishMQs.Close()
+	for _, mq := range this.publishMQs {
+		err = mq.Close()
+		if err != nil {
+			this.log.Errorf(ErrorPrefix+"`Reason: publishMQ[%s] close: %s`", mq.Name(), err)
+		}
+	}
 
 	return
 }

@@ -3,7 +3,9 @@ package timer
 import (
 	"testing"
 
+	cconf "code-lib/conf"
 	"code-lib/notify/rabbitmq"
+	"code-lib/redis"
 
 	conf "subassembly/timer-controller/conf/timer"
 )
@@ -23,6 +25,15 @@ func Test_Timer(t *testing.T) {
 			Exchange:      "cza.test.timer",
 			Kind:          "direct",
 		},
+
+		Persistence: &conf.RedisPersistenceConf{
+			Single: &redis.RedisClientConf{
+				Addr: cconf.AddrConf{
+					Host: "localhost",
+					Port: 10379,
+				},
+			},
+		},
 	}
 
 	timer, err := NewTimer(cfg)
@@ -37,5 +48,4 @@ func Test_Timer(t *testing.T) {
 		t.FailNow()
 	}
 
-	select {}
 }

@@ -27,13 +27,18 @@ func NewDeleteTimeList(start time.Time, end time.Time, others ...time.Time) (lis
 	// if have other timer, we should have double data to control
 	// e,g:
 	// [start, end1), [end1+1, start2), [start2+1, end)...
-	if len(others) != 0 {
+	if others != nil && len(others) != 0 {
 		list = append(list, list...)
 		list = append(list, others...)
 		list = append(list, others...)
 	}
 
 	sort.Sort(list)
+
+	// the first enum and the last enum have only one.
+	if len(list) > 2 {
+		list = list[1 : len(list)-1]
+	}
 
 	return list
 }
